@@ -19,14 +19,13 @@ public class TicTacToeAI : MonoBehaviour
 	TicTacToeState[,] boardState;
 
 	[SerializeField]
-	private bool _isPlayerTurn;
+	public bool _isPlayerTurn;
 
 	[SerializeField]
 	private int _gridSize = 3;
 	
-	[SerializeField]
-	private TicTacToeState playerState = TicTacToeState.cross;
-	TicTacToeState aiState = TicTacToeState.circle;
+	private TicTacToeState playerState = TicTacToeState.circle;
+	private TicTacToeState aiState = TicTacToeState.cross;
 
 	[SerializeField]
 	private GameObject _xPrefab;
@@ -39,7 +38,8 @@ public class TicTacToeAI : MonoBehaviour
 	//Call This event with the player number to denote the winner
 	public WinnerEvent onPlayerWin;
 
-	ClickTrigger[,] _triggers;
+	private ClickTrigger[,] _triggers;
+	private int roundsPlayed;
 	
 	private void Awake()
 	{
@@ -61,17 +61,29 @@ public class TicTacToeAI : MonoBehaviour
 	private void StartGame()
 	{
 		_triggers = new ClickTrigger[3,3];
+		boardState = new TicTacToeState[3,3];
 		onGameStarted.Invoke();
 	}
 
 	public void PlayerSelects(int coordX, int coordY){
 
-		SetVisual(coordX, coordY, playerState);
+		HandleSelection(coordX,coordY,playerState);
+		_isPlayerTurn = false;
 	}
 
 	public void AiSelects(int coordX, int coordY){
 
-		SetVisual(coordX, coordY, aiState);
+		HandleSelection(coordX,coordY,aiState);
+		_isPlayerTurn = true;
+	}
+
+	private void HandleSelection(int coordX, int coordY, TicTacToeState selectorState)
+	{
+		roundsPlayed++;
+		SetVisual(coordX, coordY, selectorState);
+		boardState[coordX, coordY] = selectorState;
+		
+		CheckGameState(selectorState);
 	}
 
 	private void SetVisual(int coordX, int coordY, TicTacToeState targetState)
@@ -81,5 +93,25 @@ public class TicTacToeAI : MonoBehaviour
 			_triggers[coordX, coordY].transform.position,
 			Quaternion.identity
 		);
+	}
+	
+	private void CheckGameState(TicTacToeState currentPlayerState)
+	{
+		//check for winner
+		if ((boardState[0,0] == currentPlayerState && boardState[0,1] == currentPlayerState && boardState[0,2] == currentPlayerState) ||
+			(boardState[1,0] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[1,2] == currentPlayerState) ||
+			(boardState[2,0] == currentPlayerState && boardState[2,1] == currentPlayerState && boardState[2,2] == currentPlayerState) ||
+			(boardState[0,0] == currentPlayerState && boardState[1,0] == currentPlayerState && boardState[2,0] == currentPlayerState) ||
+			(boardState[0,1] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[2,1] == currentPlayerState) ||
+			(boardState[0,2] == currentPlayerState && boardState[1,2] == currentPlayerState && boardState[2,2] == currentPlayerState) ||
+			(boardState[0,0] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[2,2] == currentPlayerState) ||
+			(boardState[2,0] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[0,2] == currentPlayerState))
+		{
+			onPlayerWin.Invoke(_isPlayerTurn ? 0 : 1);
+		}
+		else //check for tie, a.k.a. nine rounds has been played with no winner
+		{
+			if(roundsPlayed == 9) onPlayerWin.Invoke(-1);	
+		}
 	}
 }
