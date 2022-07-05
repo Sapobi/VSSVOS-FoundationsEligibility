@@ -2658,11 +2658,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _isPlayerTurn: 1
   _gridSize: 3
-  playerState: 2
   _xPrefab: {fileID: 7414302633889650939, guid: a450fd114cd7d1a478caad21517a2ac9,
     type: 3}
   _oPrefab: {fileID: 7864686030223180920, guid: f4dc0bc95f6576a40a4d10ac0b905c6a,
     type: 3}
+  _buttons: {fileID: 327832769}
   onGameStarted:
     m_PersistentCalls:
       m_Calls:

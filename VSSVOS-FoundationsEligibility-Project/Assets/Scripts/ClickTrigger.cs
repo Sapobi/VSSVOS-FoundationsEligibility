@@ -37,11 +37,16 @@ public class ClickTrigger : MonoBehaviour
 
 	private void OnMouseDown()
 	{
-		if(canClick){
-			if (_ai._isPlayerTurn) _ai.PlayerSelects(_myCoordX, _myCoordY);
-			else _ai.AiSelects(_myCoordX,_myCoordY);
-			
-			canClick = false; 
+		if(canClick)
+		{
+			_ai.PlayerSelects(_myCoordX, _myCoordY);
+			canClick = false;
 		}
+	}
+
+	public void HandleAITriggerSelection()
+	{
+		_ai.AiSelects(_myCoordX, _myCoordY);
+		canClick = false;
 	}
 }

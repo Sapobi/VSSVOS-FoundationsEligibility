@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
+using Random = UnityEngine.Random;
 
 public enum TicTacToeState{none, cross, circle}
 
@@ -19,7 +21,7 @@ public class TicTacToeAI : MonoBehaviour
 	TicTacToeState[,] boardState;
 
 	[SerializeField]
-	public bool _isPlayerTurn;
+	private bool _isPlayerTurn;
 
 	[SerializeField]
 	private int _gridSize = 3;
@@ -29,9 +31,10 @@ public class TicTacToeAI : MonoBehaviour
 
 	[SerializeField]
 	private GameObject _xPrefab;
-
 	[SerializeField]
 	private GameObject _oPrefab;
+	[SerializeField]
+	private GameObject _buttons;
 
 	public UnityEvent onGameStarted;
 
@@ -40,6 +43,7 @@ public class TicTacToeAI : MonoBehaviour
 
 	private ClickTrigger[,] _triggers;
 	private int roundsPlayed;
+	private bool gameEnded;
 	
 	private void Awake()
 	{
@@ -65,16 +69,16 @@ public class TicTacToeAI : MonoBehaviour
 		onGameStarted.Invoke();
 	}
 
-	public void PlayerSelects(int coordX, int coordY){
-
+	public void PlayerSelects(int coordX, int coordY)
+	{
 		HandleSelection(coordX,coordY,playerState);
-		_isPlayerTurn = false;
+		
+		if(!gameEnded) StartAITurn();
 	}
 
-	public void AiSelects(int coordX, int coordY){
-
+	public void AiSelects(int coordX, int coordY)
+	{
 		HandleSelection(coordX,coordY,aiState);
-		_isPlayerTurn = true;
 	}
 
 	private void HandleSelection(int coordX, int coordY, TicTacToeState selectorState)
@@ -84,6 +88,9 @@ public class TicTacToeAI : MonoBehaviour
 		boardState[coordX, coordY] = selectorState;
 		
 		CheckGameState(selectorState);
+
+		_isPlayerTurn = !_isPlayerTurn;
+		_buttons.SetActive(!_buttons.activeInHierarchy);
 	}
 
 	private void SetVisual(int coordX, int coordY, TicTacToeState targetState)
@@ -107,11 +114,58 @@ public class TicTacToeAI : MonoBehaviour
 			(boardState[0,0] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[2,2] == currentPlayerState) ||
 			(boardState[2,0] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[0,2] == currentPlayerState))
 		{
+			gameEnded = true;
 			onPlayerWin.Invoke(_isPlayerTurn ? 0 : 1);
 		}
 		else //check for tie, a.k.a. nine rounds has been played with no winner
 		{
-			if(roundsPlayed == 9) onPlayerWin.Invoke(-1);	
+			if (roundsPlayed == 9)
+			{
+				gameEnded = true;
+				onPlayerWin.Invoke(-1);
+			}	
 		}
 	}
+
+	private async void StartAITurn()
+	{
+		await Task.Delay(1000);
+		
+		if (_aiLevel == 0) AIEasy();
+		else if (_aiLevel == 1) AIHard();
+	}
+	
+	private ClickTrigger FindRandomAvailableTrigger()
+	{
+		List<ClickTrigger> availableTriggers = new List<ClickTrigger>();
+		for (int i = 0; i < _gridSize; i++) {
+			for (int j = 0; j < _gridSize; j++) {
+				if (boardState[i,j] == TicTacToeState.none) {
+					availableTriggers.Add(_triggers[i,j]);
+				}
+			}
+		}
+		int random = Random.Range(0, availableTriggers.Count);
+		return availableTriggers[random];
+	}
+
+	private void AIEasy()
+	{
+		var selectedTrigger = FindRandomAvailableTrigger();
+		
+		//if can make 3 in a row:  do it
+		//if can block player 3 in a row:  do it
+		
+		selectedTrigger.HandleAITriggerSelection();
+	}
+
+	private void AIHard()
+	{
+		var selectedTrigger = FindRandomAvailableTrigger();
+		
+		//implement MinMax algorithm to make this AI absolutely brutal
+		
+		selectedTrigger.HandleAITriggerSelection();
+	}
+
 }
