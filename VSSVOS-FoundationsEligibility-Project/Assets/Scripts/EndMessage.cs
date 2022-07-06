@@ -12,6 +12,6 @@ public class EndMessage : MonoBehaviour
 
 	public void OnGameEnded(int winner)
 	{
-		_playerMessage.text = winner == -1 ? "Tie" : winner == 1 ? "AI wins" : "Player wins";
+		_playerMessage.text = winner == 0 ? "Tie" : winner == 1 ? "AI wins" : "Player wins";
 	}
 }

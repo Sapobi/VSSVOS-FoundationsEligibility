@@ -87,10 +87,18 @@ public class TicTacToeAI : MonoBehaviour
 		SetVisual(coordX, coordY, selectorState);
 		boardState[coordX, coordY] = selectorState;
 		
-		CheckGameState(selectorState);
+		int winner = CheckGameEndState(boardState,selectorState);
 
-		_isPlayerTurn = !_isPlayerTurn;
-		_buttons.SetActive(!_buttons.activeInHierarchy);
+		if (winner == -1)
+		{
+			_isPlayerTurn = !_isPlayerTurn;
+			_buttons.SetActive(!_buttons.activeInHierarchy);
+		}
+		else
+		{
+			gameEnded = true;
+			onPlayerWin.Invoke(winner);
+		}
 	}
 
 	private void SetVisual(int coordX, int coordY, TicTacToeState targetState)
@@ -102,40 +110,37 @@ public class TicTacToeAI : MonoBehaviour
 		);
 	}
 	
-	private void CheckGameState(TicTacToeState currentPlayerState)
+	private int CheckGameEndState(TicTacToeState[,] board, TicTacToeState currentPlayerState)
 	{
 		//check for winner
-		if ((boardState[0,0] == currentPlayerState && boardState[0,1] == currentPlayerState && boardState[0,2] == currentPlayerState) ||
-			(boardState[1,0] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[1,2] == currentPlayerState) ||
-			(boardState[2,0] == currentPlayerState && boardState[2,1] == currentPlayerState && boardState[2,2] == currentPlayerState) ||
-			(boardState[0,0] == currentPlayerState && boardState[1,0] == currentPlayerState && boardState[2,0] == currentPlayerState) ||
-			(boardState[0,1] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[2,1] == currentPlayerState) ||
-			(boardState[0,2] == currentPlayerState && boardState[1,2] == currentPlayerState && boardState[2,2] == currentPlayerState) ||
-			(boardState[0,0] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[2,2] == currentPlayerState) ||
-			(boardState[2,0] == currentPlayerState && boardState[1,1] == currentPlayerState && boardState[0,2] == currentPlayerState))
+		if ((board[0,0] == currentPlayerState && board[0,1] == currentPlayerState && board[0,2] == currentPlayerState) ||
+			(board[1,0] == currentPlayerState && board[1,1] == currentPlayerState && board[1,2] == currentPlayerState) ||
+			(board[2,0] == currentPlayerState && board[2,1] == currentPlayerState && board[2,2] == currentPlayerState) ||
+			(board[0,0] == currentPlayerState && board[1,0] == currentPlayerState && board[2,0] == currentPlayerState) ||
+			(board[0,1] == currentPlayerState && board[1,1] == currentPlayerState && board[2,1] == currentPlayerState) ||
+			(board[0,2] == currentPlayerState && board[1,2] == currentPlayerState && board[2,2] == currentPlayerState) ||
+			(board[0,0] == currentPlayerState && board[1,1] == currentPlayerState && board[2,2] == currentPlayerState) ||
+			(board[2,0] == currentPlayerState && board[1,1] == currentPlayerState && board[0,2] == currentPlayerState))
 		{
-			gameEnded = true;
-			onPlayerWin.Invoke(_isPlayerTurn ? 0 : 1);
+			return currentPlayerState.GetHashCode();
 		}
-		else //check for tie, a.k.a. nine rounds has been played with no winner
+		//check for tie, a.k.a. nine rounds has been played with no winner
+		if (roundsPlayed == 9)
 		{
-			if (roundsPlayed == 9)
-			{
-				gameEnded = true;
-				onPlayerWin.Invoke(-1);
-			}	
+			return 0;
 		}
+		return -1;
 	}
 
 	private async void StartAITurn()
 	{
 		await Task.Delay(1000);
 		
-		if (_aiLevel == 0) AIEasy();
-		else if (_aiLevel == 1) AIHard();
+		if (_aiLevel == 0) AIEasy().HandleAITriggerSelection();
+		else if (_aiLevel == 1) AIHard().HandleAITriggerSelection();
 	}
 	
-	private ClickTrigger FindRandomAvailableTrigger()
+	private List<ClickTrigger> FindAvailableTriggers()
 	{
 		List<ClickTrigger> availableTriggers = new List<ClickTrigger>();
 		for (int i = 0; i < _gridSize; i++) {
@@ -145,27 +150,50 @@ public class TicTacToeAI : MonoBehaviour
 				}
 			}
 		}
+		return availableTriggers;
+	}
+	
+	private ClickTrigger FindRandomAvailableTrigger()
+	{
+		var availableTriggers = FindAvailableTriggers();
 		int random = Random.Range(0, availableTriggers.Count);
 		return availableTriggers[random];
 	}
 
-	private void AIEasy()
+	private ClickTrigger AIEasy()
 	{
-		var selectedTrigger = FindRandomAvailableTrigger();
+		var availableTriggers = FindAvailableTriggers();
 		
-		//if can make 3 in a row:  do it
-		//if can block player 3 in a row:  do it
+		//find a move that would cause AI to win, and choose it
+		foreach (var trigger in availableTriggers)
+		{
+			//pretend to do an AI move on a copy of the current boardState
+			var boardCopy = (TicTacToeState[,])boardState.Clone();
+			boardCopy[trigger._myCoordX, trigger._myCoordY] = aiState;
+
+			//If the AI wins, choose the move
+			if (CheckGameEndState(boardCopy, aiState) == 1) return trigger;
+		}
 		
-		selectedTrigger.HandleAITriggerSelection();
+		//find a move that would cause player to win, and choose to block it
+		foreach (var trigger in availableTriggers)
+		{
+			//pretend to do a player move on a copy of the current boardState
+			var boardCopy = (TicTacToeState[,])boardState.Clone();
+			boardCopy[trigger._myCoordX, trigger._myCoordY] = playerState;
+			
+			//If the player wins, choose the move to block it
+			if (CheckGameEndState(boardCopy, playerState) == 2) return trigger;
+		}
+		
+		return FindRandomAvailableTrigger();
 	}
 
-	private void AIHard()
+	private ClickTrigger AIHard()
 	{
-		var selectedTrigger = FindRandomAvailableTrigger();
-		
 		//implement MinMax algorithm to make this AI absolutely brutal
 		
-		selectedTrigger.HandleAITriggerSelection();
+		return FindRandomAvailableTrigger();
 	}
 
 }
