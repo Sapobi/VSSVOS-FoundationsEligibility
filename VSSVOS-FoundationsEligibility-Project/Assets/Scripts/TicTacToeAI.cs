@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
@@ -42,7 +43,6 @@ public class TicTacToeAI : MonoBehaviour
 	public WinnerEvent onPlayerWin;
 
 	private ClickTrigger[,] _triggers;
-	private int roundsPlayed;
 	private bool gameEnded;
 	
 	private void Awake()
@@ -83,7 +83,6 @@ public class TicTacToeAI : MonoBehaviour
 
 	private void HandleSelection(int coordX, int coordY, TicTacToeState selectorState)
 	{
-		roundsPlayed++;
 		SetVisual(coordX, coordY, selectorState);
 		boardState[coordX, coordY] = selectorState;
 		
@@ -91,7 +90,6 @@ public class TicTacToeAI : MonoBehaviour
 
 		if (winner == -1)
 		{
-			_isPlayerTurn = !_isPlayerTurn;
 			_buttons.SetActive(!_buttons.activeInHierarchy);
 		}
 		else
@@ -124,12 +122,15 @@ public class TicTacToeAI : MonoBehaviour
 		{
 			return currentPlayerState.GetHashCode();
 		}
-		//check for tie, a.k.a. nine rounds has been played with no winner
-		if (roundsPlayed == 9)
+
+		//check if there are moves left
+		foreach (var boardItem in board)
 		{
-			return 0;
+			if (boardItem == TicTacToeState.none) return -1;
 		}
-		return -1;
+
+		//tie
+		return 0;
 	}
 
 	private async void StartAITurn()
@@ -140,12 +141,12 @@ public class TicTacToeAI : MonoBehaviour
 		else if (_aiLevel == 1) AIHard().HandleAITriggerSelection();
 	}
 	
-	private List<ClickTrigger> FindAvailableTriggers()
+	private List<ClickTrigger> FindAvailableTriggers(TicTacToeState[,] board)
 	{
 		List<ClickTrigger> availableTriggers = new List<ClickTrigger>();
 		for (int i = 0; i < _gridSize; i++) {
 			for (int j = 0; j < _gridSize; j++) {
-				if (boardState[i,j] == TicTacToeState.none) {
+				if (board[i,j] == TicTacToeState.none) {
 					availableTriggers.Add(_triggers[i,j]);
 				}
 			}
@@ -153,16 +154,16 @@ public class TicTacToeAI : MonoBehaviour
 		return availableTriggers;
 	}
 	
-	private ClickTrigger FindRandomAvailableTrigger()
+	private ClickTrigger FindRandomAvailableTrigger(TicTacToeState[,] board)
 	{
-		var availableTriggers = FindAvailableTriggers();
+		var availableTriggers = FindAvailableTriggers(board);
 		int random = Random.Range(0, availableTriggers.Count);
 		return availableTriggers[random];
 	}
 
 	private ClickTrigger AIEasy()
 	{
-		var availableTriggers = FindAvailableTriggers();
+		var availableTriggers = FindAvailableTriggers(boardState);
 		
 		//find a move that would cause AI to win, and choose it
 		foreach (var trigger in availableTriggers)
@@ -186,14 +187,61 @@ public class TicTacToeAI : MonoBehaviour
 			if (CheckGameEndState(boardCopy, playerState) == 2) return trigger;
 		}
 		
-		return FindRandomAvailableTrigger();
+		return FindRandomAvailableTrigger(boardState);
 	}
 
 	private ClickTrigger AIHard()
 	{
-		//implement MinMax algorithm to make this AI absolutely brutal
-		
-		return FindRandomAvailableTrigger();
+		return MinMax(boardState, aiState).bestMove;
 	}
 
+	private (int bestScore, ClickTrigger bestMove) MinMax(TicTacToeState[,] board, TicTacToeState state)
+	{
+		var availableTriggers = FindAvailableTriggers(board);
+		ClickTrigger bestMove = availableTriggers.FirstOrDefault();
+
+		int bestScore = state == aiState ? -100 : 100;
+		int scoreWeight = availableTriggers.Count;
+
+		foreach (var trigger in availableTriggers)
+		{
+			//pretend to do an available move for state on the board
+			var boardCopy = (TicTacToeState[,])board.Clone();
+			boardCopy[trigger._myCoordX, trigger._myCoordY] = state;
+
+			int score;
+			if (CheckGameEndState(boardCopy, state) == 1) score = 10 + scoreWeight; //AI wins
+			else if (CheckGameEndState(boardCopy, state) == 2) score = -(10 + scoreWeight); //Player wins
+			else if (CheckGameEndState(boardCopy, state) == 0) score = 0; //Tie
+			else score = MinMax(boardCopy, GetNextState(state)).bestScore;
+
+			if (state == aiState)
+			{
+				if (score > bestScore)
+				{
+					bestScore = score;
+					bestMove = trigger;
+				}
+			}
+			else if (state == playerState)
+			{
+				if (score < bestScore)
+				{
+					bestScore = score;
+					bestMove = trigger;
+				}
+			}
+		}
+
+		return (bestScore, bestMove);
+	}
+
+	private TicTacToeState GetNextState(TicTacToeState state)
+	{
+		var nextState = TicTacToeState.none;
+		if (state == TicTacToeState.circle) nextState = TicTacToeState.cross;
+		else if (state == TicTacToeState.cross) nextState = TicTacToeState.circle;
+
+		return nextState;
+	}
 }
